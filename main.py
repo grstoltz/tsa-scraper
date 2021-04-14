@@ -2,6 +2,7 @@
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
+import numpy as np
 from google.cloud import bigquery
 import pyarrow
 
@@ -24,6 +25,15 @@ def hello_world(request):
 
     df = pd.DataFrame(data, columns=['date', 'throughput_2021', 'throughput_2020', 'throughput_2019'])
 
+    df["throughput_2021"] = df["throughput_2021"].str.replace(',', '').replace('', 0).astype(float)
+    df["throughput_2020"] = df["throughput_2020"].str.replace(',', '').replace('', 0).astype(float)
+    df["throughput_2019"] = df["throughput_2019"].str.replace(',', '').replace('', 0).astype(float)
+
+
+    df['2019_7_day_avg'] = df['throughput_2019'].rolling(7, min_periods=1).mean()[::-1].round(1)  
+    df['2020_7_day_avg'] = df['throughput_2020'].rolling(7, min_periods=1).mean()[::-1].round(1)
+    df['2021_7_day_avg'] = df['throughput_2021'].rolling(7, min_periods=1).mean()[::-1].round(1)
+
     client = bigquery.Client()
     dataset_id = 'tsa-scraper:tsa'
     table_name= 'daily_throughput'
@@ -35,4 +45,3 @@ def hello_world(request):
     #job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
     load_job = client.load_table_from_dataframe(df, dataset_ref.table(table_name), job_config=job_config)
     print("Starting job {}".format(load_job))
-
